@@ -11,6 +11,7 @@ File	Description
 password_strength_checker.py	Core CLI implementation in Python
 password_strength_checker_gui.py	Tkinter desktop app version
 docs/index.html	Browser-based interface ("CIPHERGATE") — HTML/CSS/JS
+
 ⚙️ How it works
 
 The checker follows an Input → Process → Output model:
