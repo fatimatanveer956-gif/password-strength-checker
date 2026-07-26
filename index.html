@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIPHERGATE — Password Strength Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0e16;
+    --panel:#10151f;
+    --panel-line:#1c2430;
+    --ink:#e7edf4;
+    --dim:#5c6b7d;
+    --cyan:#33e5c9;
+    --cyan-dim:rgba(51,229,201,0.15);
+    --amber:#f2a444;
+    --red:#ff5468;
+    --mono:'JetBrains Mono', monospace;
+    --sans:'Inter', sans-serif;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  body{
+    background:
+      radial-gradient(circle at 50% 0%, rgba(51,229,201,0.06), transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px 20px;
+  }
+
+  .console{
+    width:100%;
+    max-width:520px;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 40px 80px -30px rgba(0,0,0,0.6);
+    position:relative;
+  }
+
+  .scanline{
+    position:absolute;
+    top:0; left:0;
+    width:100%; height:2px;
+    background:linear-gradient(90deg, transparent, var(--cyan), transparent);
+    animation:sweep 3.2s linear infinite;
+    opacity:0.8;
+  }
+  @keyframes sweep{
+    0%{ transform:translateX(-100%); }
+    100%{ transform:translateX(100%); }
+  }
+
+  header{
+    padding:22px 28px 16px;
+    border-bottom:1px solid var(--panel-line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:0.06em;
+    color:var(--ink);
+  }
+  .brand .dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--cyan);
+    box-shadow:0 0 8px var(--cyan);
+  }
+
+  .status-pill{
+    font-family:var(--mono);
+    font-size:9.5px;
+    letter-spacing:0.08em;
+    color:var(--dim);
+    border:1px solid var(--panel-line);
+    padding:4px 9px;
+    border-radius:20px;
+  }
+
+  main{ padding:30px 28px 8px; }
+
+  .gauge-row{
+    display:flex;
+    align-items:center;
+    gap:24px;
+    margin-bottom:26px;
+  }
+
+  .gauge-wrap{ position:relative; width:112px; height:112px; flex-shrink:0; }
+  .gauge-wrap svg{ width:100%; height:100%; transform:rotate(-90deg); }
+  .gauge-track{ fill:none; stroke:var(--panel-line); stroke-width:8; }
+  .gauge-fill{
+    fill:none; stroke:var(--cyan); stroke-width:8; stroke-linecap:round;
+    stroke-dasharray:301.6; stroke-dashoffset:301.6;
+    transition:stroke-dashoffset 0.4s ease, stroke 0.4s ease;
+    filter:drop-shadow(0 0 6px currentColor);
+  }
+  .gauge-center{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .gauge-pct{ font-family:var(--mono); font-weight:800; font-size:22px; }
+  .gauge-unit{ font-family:var(--mono); font-size:9px; color:var(--dim); letter-spacing:0.08em; }
+
+  .verdict-block{ flex:1; }
+  .verdict-label{
+    font-family:var(--mono); font-size:10px; letter-spacing:0.1em;
+    color:var(--dim); margin-bottom:6px;
+  }
+  .verdict-value{
+    font-family:var(--mono); font-weight:800; font-size:26px; letter-spacing:0.01em;
+    transition:color 0.3s ease;
+  }
+  .verdict-sub{
+    font-family:var(--sans); font-size:12px; color:var(--dim); margin-top:6px; line-height:1.4;
+  }
+
+  .field-label{
+    font-family:var(--mono); font-size:10px; letter-spacing:0.1em;
+    color:var(--dim); display:block; margin-bottom:8px;
+  }
+
+  .input-row{
+    display:flex; align-items:center;
+    background:#0d121b;
+    border:1px solid var(--panel-line);
+    border-radius:10px;
+    margin-bottom:22px;
+    transition:border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .input-row:focus-within{
+    border-color:var(--cyan);
+    box-shadow:0 0 0 3px var(--cyan-dim);
+  }
+  #pwd{
+    flex:1; border:none; outline:none; background:transparent;
+    font-family:var(--mono); font-size:15px; color:var(--ink);
+    padding:14px 14px; letter-spacing:0.04em;
+  }
+  #pwd::placeholder{ color:var(--dim); }
+  #toggleShow{
+    border:none; background:none; color:var(--dim);
+    font-family:var(--mono); font-size:10px; letter-spacing:0.06em;
+    padding:0 16px; cursor:pointer; height:100%;
+    transition:color 0.15s ease;
+  }
+  #toggleShow:hover{ color:var(--cyan); }
+
+  .criteria{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-bottom:22px;
+  }
+  .criterion{
+    display:flex; align-items:center; gap:8px;
+    background:#0d121b;
+    border:1px solid var(--panel-line);
+    border-radius:8px;
+    padding:10px 12px;
+    transition:border-color 0.2s ease, background 0.2s ease;
+  }
+  .criterion.met{
+    border-color:rgba(51,229,201,0.4);
+    background:rgba(51,229,201,0.05);
+  }
+  .criterion .mark{
+    font-family:var(--mono); font-size:12px; width:14px; text-align:center;
+    color:var(--dim); transition:color 0.2s ease;
+  }
+  .criterion.met .mark{ color:var(--cyan); }
+  .criterion span.label{ font-family:var(--sans); font-size:11.5px; color:var(--dim); }
+  .criterion.met span.label{ color:var(--ink); }
+
+  .unicode-banner{
+    font-family:var(--mono); font-size:10.5px; color:var(--cyan);
+    min-height:16px; margin-bottom:8px; letter-spacing:0.02em;
+  }
+
+  footer{
+    padding:14px 28px 20px;
+    border-top:1px solid var(--panel-line);
+    display:flex; justify-content:space-between;
+    font-family:var(--mono); font-size:9.5px; color:var(--dim); letter-spacing:0.05em;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .scanline{ animation:none; }
+    .gauge-fill{ transition:none; }
+  }
+
+  @media (max-width:480px){
+    .gauge-row{ flex-direction:column; align-items:flex-start; }
+    .criteria{ grid-template-columns:1fr; }
+    header, main, footer{ padding-left:20px; padding-right:20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="console">
+  <div class="scanline"></div>
+
+  <header>
+    <div class="brand"><span class="dot"></span>CIPHERGATE</div>
+    <div class="status-pill" id="statusPill">STANDBY</div>
+  </header>
+
+  <main>
+    <div class="gauge-row">
+      <div class="gauge-wrap">
+        <svg viewBox="0 0 110 110">
+          <circle class="gauge-track" cx="55" cy="55" r="48"></circle>
+          <circle class="gauge-fill" id="gaugeFill" cx="55" cy="55" r="48"></circle>
+        </svg>
+        <div class="gauge-center">
+          <div class="gauge-pct" id="gaugePct">0%</div>
+          <div class="gauge-unit">ENTROPY</div>
+        </div>
+      </div>
+      <div class="verdict-block">
+        <div class="verdict-label">CLASSIFICATION</div>
+        <div class="verdict-value" id="verdictValue" style="color:var(--dim);">STANDBY</div>
+        <div class="verdict-sub" id="verdictSub">Enter a password below to begin analysis.</div>
+      </div>
+    </div>
+
+    <label class="field-label" for="pwd">PASSWORD INPUT</label>
+    <div class="input-row">
+      <input type="password" id="pwd" placeholder="••••••••" autocomplete="off" spellcheck="false">
+      <button id="toggleShow" type="button">SHOW</button>
+    </div>
+
+    <div class="criteria">
+      <div class="criterion" data-key="length"><span class="mark">○</span><span class="label">8+ characters</span></div>
+      <div class="criterion" data-key="upper"><span class="mark">○</span><span class="label">Uppercase letter</span></div>
+      <div class="criterion" data-key="lower"><span class="mark">○</span><span class="label">Lowercase letter</span></div>
+      <div class="criterion" data-key="digit"><span class="mark">○</span><span class="label">Numeric digit</span></div>
+      <div class="criterion" data-key="symbol"><span class="mark">○</span><span class="label">Symbol</span></div>
+      <div class="criterion" data-key="length12"><span class="mark">○</span><span class="label">12+ characters</span></div>
+    </div>
+
+    <div class="unicode-banner" id="unicodeBanner"></div>
+  </main>
+
+  <footer>
+    <span>ALGORITHM: SINGLE-PASS O(n)</span>
+    <span id="scanTime">0.000ms</span>
+  </footer>
+</div>
+
+<script>
+  const pwdInput = document.getElementById('pwd');
+  const toggleBtn = document.getElementById('toggleShow');
+  const gaugeFill = document.getElementById('gaugeFill');
+  const gaugePct = document.getElementById('gaugePct');
+  const verdictValue = document.getElementById('verdictValue');
+  const verdictSub = document.getElementById('verdictSub');
+  const statusPill = document.getElementById('statusPill');
+  const unicodeBanner = document.getElementById('unicodeBanner');
+  const scanTime = document.getElementById('scanTime');
+
+  const CIRCUMFERENCE = 301.6;
+  const SYMBOLS = new Set('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~'.split(''));
+
+  const STYLE = {
+    Weak:   { color:'#ff5468', sub:'Highly guessable. Increase length and mix character types.' },
+    Medium: { color:'#f2a444', sub:'Reasonable, but not yet resistant to targeted attacks.' },
+    Strong: { color:'#33e5c9', sub:'Meets all criteria for a resilient password.' },
+  };
+
+  toggleBtn.addEventListener('click', () => {
+    const isPwd = pwdInput.type === 'password';
+    pwdInput.type = isPwd ? 'text' : 'password';
+    toggleBtn.textContent = isPwd ? 'HIDE' : 'SHOW';
+  });
+
+  function evaluate(password) {
+    const t0 = performance.now();
+    let hasUpper=false, hasLower=false, hasDigit=false, hasSymbol=false, hasUnicode=false;
+
+    for (const ch of password) {
+      const code = ch.codePointAt(0);
+      if (ch >= 'A' && ch <= 'Z') hasUpper = true;
+      else if (ch >= 'a' && ch <= 'z') hasLower = true;
+      if (ch >= '0' && ch <= '9') hasDigit = true;
+      else if (SYMBOLS.has(ch)) hasSymbol = true;
+      if (code > 127) hasUnicode = true;
+    }
+
+    const length = [...password].length;
+    let verdict;
+    if (length < 8) {
+      verdict = 'Weak';
+    } else {
+      const categoriesMet = [hasUpper, hasLower, hasDigit, hasSymbol].filter(Boolean).length;
+      if (categoriesMet <= 2) verdict = 'Weak';
+      else if (categoriesMet === 3) verdict = 'Medium';
+      else verdict = length >= 12 ? 'Strong' : 'Medium';
+      if (hasUnicode && verdict === 'Medium' && categoriesMet >= 3) verdict = 'Strong';
+    }
+
+    const t1 = performance.now();
+    return { length, hasUpper, hasLower, hasDigit, hasSymbol, hasUnicode, verdict, elapsed:t1-t0 };
+  }
+
+  function scoreToPercent(result) {
+    const checks = [
+      result.length >= 8, result.hasUpper, result.hasLower,
+      result.hasDigit, result.hasSymbol, result.length >= 12
+    ];
+    const met = checks.filter(Boolean).length;
+    return Math.round((met / checks.length) * 100);
+  }
+
+  function render(result, isEmpty) {
+    const map = {
+      length: result.length >= 8,
+      upper: result.hasUpper,
+      lower: result.hasLower,
+      digit: result.hasDigit,
+      symbol: result.hasSymbol,
+      length12: result.length >= 12,
+    };
+    for (const key in map) {
+      const el = document.querySelector(`.criterion[data-key="${key}"]`);
+      const mark = el.querySelector('.mark');
+      const met = map[key];
+      el.classList.toggle('met', met);
+      mark.textContent = met ? '●' : '○';
+    }
+
+    const pct = isEmpty ? 0 : scoreToPercent(result);
+    gaugeFill.style.strokeDashoffset = CIRCUMFERENCE - (CIRCUMFERENCE * pct / 100);
+    gaugePct.textContent = pct + '%';
+
+    if (isEmpty) {
+      verdictValue.textContent = 'STANDBY';
+      verdictValue.style.color = 'var(--dim)';
+      verdictSub.textContent = 'Enter a password below to begin analysis.';
+      statusPill.textContent = 'STANDBY';
+      gaugeFill.style.stroke = 'var(--panel-line)';
+      unicodeBanner.textContent = '';
+      scanTime.textContent = '0.000ms';
+      return;
+    }
+
+    const style = STYLE[result.verdict];
+    verdictValue.textContent = result.verdict.toUpperCase();
+    verdictValue.style.color = style.color;
+    verdictSub.textContent = style.sub;
+    statusPill.textContent = result.verdict === 'Strong' ? 'SECURE' : 'ANALYZING';
+    gaugeFill.style.stroke = style.color;
+    unicodeBanner.textContent = result.hasUnicode
+      ? '▲ UNICODE DETECTED — search space expanded 95 → 143,000+'
+      : '';
+    scanTime.textContent = result.elapsed.toFixed(3) + 'ms';
+  }
+
+  pwdInput.addEventListener('input', () => {
+    const password = pwdInput.value;
+    if (password.length === 0) {
+      render({ length:0, hasUpper:false, hasLower:false, hasDigit:false, hasSymbol:false, hasUnicode:false, verdict:'Weak', elapsed:0 }, true);
+      return;
+    }
+    render(evaluate(password), false);
+  });
+
+  render({ length:0 }, true);
+</script>
+
+</body>
+</html>
